@@ -7,6 +7,7 @@ on:
 jobs:
   collect-features:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     steps:
     - uses: actions/checkout@v4
@@ -20,13 +21,24 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install openmeteo_requests requests_cache retry_requests pandas numpy
-        pip list  # Verify installed packages
+        pip list
         
+    - name: Create data directory
+      run: mkdir -p data
+      
     - name: Run collection
       run: python scripts/collect_features.py
       
+    - name: Verify output
+      run: |
+        echo "File contents:"
+        head data/hourly_features.csv
+        echo "\nLine count:"
+        wc -l data/hourly_features.csv
+        
     - name: Upload features
       uses: actions/upload-artifact@v4
       with:
         name: aqi-features
         path: data/hourly_features.csv
+        retention-days: 3
