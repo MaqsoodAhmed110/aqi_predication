@@ -1,47 +1,43 @@
 name: Model Training
 on:
   schedule:
-    - cron: '30 0 * * *'  # Daily at 00:30 UTC
+    - cron: '30 * * * *'  # Runs at :30 past every hour
   workflow_dispatch:
-  
-jobs:
-  prepare:
-    runs-on: ubuntu-latest
-    outputs:
-      features_run_id: ${{ steps.get_run_id.outputs.latest_run }}
-    steps:
-      - name: Get latest features run
-        id: get_run_id
-        run: |
-          LATEST_RUN=$(gh run list -w "Feature Collection" --json databaseId -q '.[0].databaseId')
-          echo "latest_run=$LATEST_RUN" >> $GITHUB_OUTPUT
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+jobs:
   train-model:
     runs-on: ubuntu-latest
-    needs: prepare
+    timeout-minutes: 30
+    
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    
+    # Setup GitHub CLI properly
+    - name: Setup GH CLI
+      uses: actions/setup-gh@v1
       
-      - name: Download features
-        uses: actions/download-artifact@v4
-        with:
-          name: aqi-features-${{ needs.prepare.outputs.features_run_id }}
-          path: data/
-          
-      - name: Verify download
-        run: |
-          if [ ! -f data/hourly_features.csv ]; then
-            echo "::error::Feature file not found!"
-            exit 1
-          fi
-          
-      - name: Train model
-        run: python scripts/train_model.py
+    - name: Authenticate GH CLI
+      run: gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
+      
+    # Find latest features artifact
+    - name: Get latest features run
+      id: get_run
+      run: |
+        LATEST_RUN=$(gh run list -w "Feature Collection" --json databaseId,conclusion -q 'map(select(.conclusion == "success")) | .[0].databaseId')
+        echo "run_id=$LATEST_RUN" >> $GITHUB_OUTPUT
         
-      - name: Upload model
-        uses: actions/upload-artifact@v4
-        with:
-          name: aqi-model-${{ github.run_number }}
-          path: models/aqi_model.json
+    # Download features
+    - name: Download features
+      uses: actions/download-artifact@v4
+      with:
+        name: aqi-features-${{ steps.get_run.outputs.run_id }}
+        path: data/
+        
+    - name: Train model
+      run: python scripts/train_model.py
+      
+    - name: Upload model
+      uses: actions/upload-artifact@v4
+      with:
+        name: aqi-model-${{ github.run_number }}
+        path: models/aqi_model.json
