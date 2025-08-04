@@ -1,6 +1,7 @@
-openmeteo_requests
-requests_cache
-retry_requests
-pandas
+openmeteo_requests>=1.0.0
+requests_cache>=1.0.0
+retry_requests>=1.0.0
+pandas>=2.0.0
+numpy>=1.24.0
 xgboost
 scikit-learn
