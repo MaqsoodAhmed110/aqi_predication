@@ -5,7 +5,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  find-artifact:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_name: ${{ steps.find.outputs.artifact }}
+    steps:
+    - name: Find latest features artifact
+      id: find
+      run: |
+        # Get most recent successful features run
+        RUN_ID=$(gh run list -w "Feature Collection" --json databaseId,conclusion -q 'map(select(.conclusion == "success")) | .[0].databaseId')
+        echo "artifact_name=aqi-features-$RUN_ID" >> $GITHUB_OUTPUT
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   train-model:
+    needs: find-artifact
     runs-on: ubuntu-latest
     timeout-minutes: 30
     
@@ -26,13 +41,14 @@ jobs:
     - name: Download features
       uses: actions/download-artifact@v4
       with:
-        name: aqi-features
+        name: ${{ needs.find-artifact.outputs.artifact_name }}
         path: data/
         
     - name: Verify features
       run: |
         if [ ! -f data/hourly_features.csv ]; then
           echo "::error::Feature file missing!"
+          ls -la data/
           exit 1
         fi
         echo "Found $(wc -l < data/hourly_features.csv) records"
@@ -47,11 +63,11 @@ jobs:
       run: |
         echo "Model files:"
         ls -lh models/
-        python -c "import xgboost; print('XGBoost version:', xgboost.__version__)"
+        python -c "import xgboost; model=xgboost.Booster(); model.load_model('models/aqi_model.json'); print('Model loaded successfully')"
         
     - name: Upload model
       uses: actions/upload-artifact@v4
       with:
-        name: aqi-model
+        name: aqi-model-${{ github.run_number }}
         path: models/
         retention-days: 7
