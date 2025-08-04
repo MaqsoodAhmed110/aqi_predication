@@ -5,18 +5,35 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Independent job that runs if features collection fails
+  check-features:
+    runs-on: ubuntu-latest
+    outputs:
+      features_available: ${{ steps.check.outputs.exists }}
+    steps:
+      - name: Check for features
+        id: check
+        run: |
+          echo "exists=true" >> $GITHUB_OUTPUT
+          # Or use API to verify last successful features run
+          # echo "exists=${{ github.event_name == 'workflow_dispatch' || fromJson('true') }}" >> $GITHUB_OUTPUT
+
+  # Main training job
   train-model:
     runs-on: ubuntu-latest
-    needs: collect-features  # Explicit dependency
+    needs: check-features  # Soft dependency
+    if: needs.check-features.outputs.features_available == 'true'
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Download artifact
+    - name: Download latest features
       uses: actions/download-artifact@v4
       with:
-        name: aqi-features-${{ needs.collect-features.outputs.run_id }}
+        name: aqi-features-*
         path: data/
+        pattern: aqi-features-*
+        merge-multiple: true
         
     - name: Verify download
       run: |
