@@ -8,18 +8,27 @@ jobs:
   train-model:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
     
     steps:
     - uses: actions/checkout@v4
     
-    # Setup GitHub CLI properly
-    - name: Setup GH CLI
-      uses: actions/setup-gh@v1
+    # Proper GH CLI setup
+    - name: Install GitHub CLI
+      run: |
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+        sudo apt update
+        sudo apt install gh -y
+        
+    - name: Configure GH CLI
+      run: |
+        gh config set prompt disabled
+        gh auth status || gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
       
-    - name: Authenticate GH CLI
-      run: gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
-      
-    # Find latest features artifact
+    # Find latest successful features run
     - name: Get latest features run
       id: get_run
       run: |
