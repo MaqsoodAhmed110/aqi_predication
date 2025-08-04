@@ -15,7 +15,7 @@ jobs:
     
     # Download the collected features
     - name: Download feature data
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: aqi-features
         path: data/
@@ -40,7 +40,7 @@ jobs:
         
     # Save the trained model
     - name: Save trained model
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: aqi-model
         path: models/aqi_model.json
