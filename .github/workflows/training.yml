@@ -5,25 +5,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  find-artifact:
-    runs-on: ubuntu-latest
-    outputs:
-      artifact_name: ${{ steps.find.outputs.artifact }}
-    steps:
-    - name: Find latest features artifact
-      id: find
-      run: |
-        # Get most recent successful features run
-        RUN_ID=$(gh run list -w "Feature Collection" --json databaseId,conclusion -q 'map(select(.conclusion == "success")) | .[0].databaseId')
-        echo "artifact_name=aqi-features-$RUN_ID" >> $GITHUB_OUTPUT
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   train-model:
-    needs: find-artifact
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    
+    permissions:
+      actions: read
+      contents: read
+
     steps:
     - uses: actions/checkout@v4
     
@@ -38,20 +26,31 @@ jobs:
         pip install xgboost scikit-learn pandas numpy joblib
         pip list
         
-    - name: Download features
+    - name: Download latest features
       uses: actions/download-artifact@v4
       with:
-        name: ${{ needs.find-artifact.outputs.artifact_name }}
+        name: aqi-features
         path: data/
+        
+    - name: Fallback download (if exact name fails)
+      if: failure() && steps.download-features.conclusion == 'failure'
+      uses: actions/download-artifact@v4
+      with:
+        name: aqi-features-*
+        path: data/
+        pattern: aqi-features-*
+        merge-multiple: true
         
     - name: Verify features
       run: |
-        if [ ! -f data/hourly_features.csv ]; then
-          echo "::error::Feature file missing!"
-          ls -la data/
-          exit 1
-        fi
-        echo "Found $(wc -l < data/hourly_features.csv) records"
+        import pandas as pd
+        try:
+            df = pd.read_csv('data/hourly_features.csv')
+            print(f"Successfully loaded {len(df)} records")
+        except Exception as e:
+            print(f"::error::Failed to load features: {str(e)}")
+            exit(1)
+      shell: python
         
     - name: Create models directory
       run: mkdir -p models
@@ -61,9 +60,18 @@ jobs:
       
     - name: Verify model
       run: |
-        echo "Model files:"
-        ls -lh models/
-        python -c "import xgboost; model=xgboost.Booster(); model.load_model('models/aqi_model.json'); print('Model loaded successfully')"
+        import xgboost, os
+        if not os.path.exists('models/aqi_model.json'):
+            print("::error::Model file not found!")
+            exit(1)
+        try:
+            model = xgboost.Booster()
+            model.load_model('models/aqi_model.json')
+            print("Model verified successfully")
+        except Exception as e:
+            print(f"::error::Model verification failed: {str(e)}")
+            exit(1)
+      shell: python
         
     - name: Upload model
       uses: actions/upload-artifact@v4
