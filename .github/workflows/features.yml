@@ -7,25 +7,26 @@ on:
 jobs:
   collect-features:
     runs-on: ubuntu-latest
-    outputs:
-      run_id: ${{ github.run_id }}  # Expose the run ID
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Setup Python
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
         
-    - name: Generate features
+    - name: Install dependencies
       run: |
-        mkdir -p data
-        python scripts/collect_features.py
+        python -m pip install --upgrade pip
+        pip install openmeteo_requests requests_cache retry_requests pandas
+        pip freeze > requirements.txt  # Optional: Create requirements file
         
+    - name: Run feature collection
+      run: python scripts/collect_features.py
+      
     - name: Upload features
       uses: actions/upload-artifact@v4
       with:
-        name: aqi-features-${{ github.run_id }}  # Unique name per run
+        name: aqi-features
         path: data/hourly_features.csv
-        retention-days: 3
