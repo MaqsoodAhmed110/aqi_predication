@@ -3,58 +3,45 @@ on:
   schedule:
     - cron: '30 0 * * *'  # Daily at 00:30 UTC
   workflow_dispatch:
-
+  
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      features_run_id: ${{ steps.get_run_id.outputs.latest_run }}
+    steps:
+      - name: Get latest features run
+        id: get_run_id
+        run: |
+          LATEST_RUN=$(gh run list -w "Feature Collection" --json databaseId -q '.[0].databaseId')
+          echo "latest_run=$LATEST_RUN" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   train-model:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    
+    needs: prepare
     steps:
-    - uses: actions/checkout@v4
-    
-    # Step 1: List available artifacts to debug
-    - name: List available artifacts
-      run: |
-        echo "Available artifacts in repo:"
-        gh api repos/${{ github.repository }}/actions/artifacts --jq '.artifacts[] | .name'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      continue-on-error: true
-    
-    # Step 2: Download using exact naming pattern
-    - name: Download features
-      uses: actions/download-artifact@v4
-      with:
-        name: aqi-features
-        path: data/
-    
-    # Step 3: Fallback download method
-    - name: Alternative download (if previous failed)
-      if: failure() && steps.download-features.conclusion == 'failure'
-      uses: actions/download-artifact@v4
-      with:
-        name: aqi-features-*
-        path: data/
-        pattern: aqi-features-*
-        merge-multiple: true
-    
-    # Step 4: Verify download
-    - name: Verify features
-      run: |
-        if [ ! -f data/hourly_features.csv ]; then
-          echo "::error::No features file found!"
-          echo "Available files:"
-          ls -la data/
-          exit 1
-        fi
-        echo "Features file verified"
-    
-    # Continue with training...
-    - name: Train model
-      run: python scripts/train_model.py
+      - uses: actions/checkout@v4
       
-    - name: Upload model
-      uses: actions/upload-artifact@v4
-      with:
-        name: aqi-model-${{ github.run_number }}
-        path: models/aqi_model.json
+      - name: Download features
+        uses: actions/download-artifact@v4
+        with:
+          name: aqi-features-${{ needs.prepare.outputs.features_run_id }}
+          path: data/
+          
+      - name: Verify download
+        run: |
+          if [ ! -f data/hourly_features.csv ]; then
+            echo "::error::Feature file not found!"
+            exit 1
+          fi
+          
+      - name: Train model
+        run: python scripts/train_model.py
+        
+      - name: Upload model
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqi-model-${{ github.run_number }}
+          path: models/aqi_model.json
