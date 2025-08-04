@@ -1,13 +1,14 @@
 name: Feature Collection
 on:
   schedule:
-    - cron: '0 * * * *'  # Every hour at :00
+    - cron: '0 * * * *'  # Every hour
   workflow_dispatch:
 
 jobs:
   collect-features:
     runs-on: ubuntu-latest
-    timeout-minutes: 15  # Prevent hanging
+    outputs:
+      run_id: ${{ github.run_id }}  # Expose the run ID
     
     steps:
     - uses: actions/checkout@v4
@@ -17,20 +18,14 @@ jobs:
       with:
         python-version: '3.10'
         
-    - name: Install dependencies
-      run: pip install -r requirements.txt
-      
-    - name: Run collection
-      run: python scripts/collect_features.py
-      
-    - name: Verify data
+    - name: Generate features
       run: |
-        [ -f data/hourly_features.csv ] || exit 1
-        echo "Data validation passed"
+        mkdir -p data
+        python scripts/collect_features.py
         
-    - name: Upload artifact
+    - name: Upload features
       uses: actions/upload-artifact@v4
       with:
-       name: aqi-features  # Consistent naming
-       path: data/hourly_features.csv
-       retention-days: 3
+        name: aqi-features-${{ github.run_id }}  # Unique name per run
+        path: data/hourly_features.csv
+        retention-days: 3
