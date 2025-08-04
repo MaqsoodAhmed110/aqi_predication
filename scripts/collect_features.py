@@ -66,7 +66,7 @@ def collect_features():
             "uv_index_clear_sky", "ammonia", "methane"
         ],
         "timezone": "auto",
-        "past_days": 1,
+        "past_days": 30,
         "forecast_days": 1
     }
     
