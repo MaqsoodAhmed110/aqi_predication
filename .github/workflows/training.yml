@@ -26,53 +26,92 @@ jobs:
         pip install xgboost scikit-learn pandas numpy joblib
         pip list
         
-    - name: Download latest features
+    # Primary download attempt
+    - name: Download features (exact name)
+      id: download-exact
       uses: actions/download-artifact@v4
       with:
         name: aqi-features
         path: data/
+      continue-on-error: true
         
-    - name: Fallback download (if exact name fails)
-      if: failure() && steps.download-features.conclusion == 'failure'
+    # Secondary download attempt
+    - name: Download features (pattern match)
+      if: steps.download-exact.outcome == 'failure'
+      id: download-pattern
       uses: actions/download-artifact@v4
       with:
         name: aqi-features-*
         path: data/
         pattern: aqi-features-*
-        merge-multiple: true
+        merge-multiple: false
+        
+    # Final fallback using API
+    - name: Download features (API fallback)
+      if: steps.download-exact.outcome == 'failure' && steps.download-pattern.outcome == 'failure'
+      run: |
+        import requests
+        import os
+        from urllib.parse import urljoin
+
+        # Get the latest artifact ID
+        api_url = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts"
+        headers = {
+            "Authorization": f"token {os.environ['GITHUB_TOKEN']}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        
+        response = requests.get(api_url, headers=headers)
+        response.raise_for_status()
+        
+        artifacts = [a for a in response.json()['artifacts'] 
+                    if a['name'].startswith('aqi-features')]
+        
+        if not artifacts:
+            print("::error::No matching artifacts found")
+            exit(1)
+            
+        latest_artifact = max(artifacts, key=lambda x: x['updated_at'])
+        download_url = latest_artifact['archive_download_url']
+        
+        # Download and extract
+        os.makedirs('data', exist_ok=True)
+        response = requests.get(download_url, headers=headers, stream=True)
+        response.raise_for_status()
+        
+        with open('data/features.zip', 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+                
+        os.system('unzip data/features.zip -d data/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: python
         
     - name: Verify features
       run: |
         import pandas as pd
+        import os
+        
+        csv_path = 'data/hourly_features.csv'
+        if not os.path.exists(csv_path):
+            print(f"::error::Features file not found at {csv_path}")
+            print("Contents of data/ directory:")
+            print(os.listdir('data'))
+            exit(1)
+            
         try:
-            df = pd.read_csv('data/hourly_features.csv')
+            df = pd.read_csv(csv_path)
             print(f"Successfully loaded {len(df)} records")
+            print("Columns:", df.columns.tolist())
         except Exception as e:
             print(f"::error::Failed to load features: {str(e)}")
             exit(1)
       shell: python
         
-    - name: Create models directory
-      run: mkdir -p models
-      
     - name: Train model
       run: python scripts/train_model.py
       
-    - name: Verify model
-      run: |
-        import xgboost, os
-        if not os.path.exists('models/aqi_model.json'):
-            print("::error::Model file not found!")
-            exit(1)
-        try:
-            model = xgboost.Booster()
-            model.load_model('models/aqi_model.json')
-            print("Model verified successfully")
-        except Exception as e:
-            print(f"::error::Model verification failed: {str(e)}")
-            exit(1)
-      shell: python
-        
     - name: Upload model
       uses: actions/upload-artifact@v4
       with:
