@@ -1,33 +1,36 @@
-name: Feature Collection Pipeline
-
+name: Feature Collection
 on:
   schedule:
-    - cron: '0 * * * *'  # Hourly
-  workflow_dispatch:     # Manual trigger
+    - cron: '0 * * * *'  # Every hour at :00
+  workflow_dispatch:
 
 jobs:
   collect-features:
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Prevent hanging
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Python
+    - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.10'
         
     - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-        
-    - name: Run feature script
+      run: pip install -r requirements.txt
+      
+    - name: Run collection
       run: python scripts/collect_features.py
+      
+    - name: Verify data
+      run: |
+        [ -f data/hourly_features.csv ] || exit 1
+        echo "Data validation passed"
         
-    # CHANGED FROM v3 TO v4
-    - name: Upload features
-      uses: actions/upload-artifact@v4  # Updated version
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
       with:
-        name: aqi-features
+        name: aqi-features-${{ github.run_id }}  # Unique name per run
         path: data/hourly_features.csv
-        retention-days: 3  # Optional: auto-cleanup
+        retention-days: 7  # Keep for 1 week
