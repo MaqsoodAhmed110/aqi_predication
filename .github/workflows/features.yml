@@ -1,0 +1,39 @@
+name: Feature Collection Pipeline
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Runs at minute 0 of every hour
+  workflow_dispatch:     # Allows manual triggering
+
+jobs:
+  collect-features:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Checkout your code
+    - uses: actions/checkout@v4
+    
+    # Set up Python
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    # Install dependencies
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install openmeteo_requests pandas
+        
+    # Run feature collection script
+    - name: Collect air quality features
+      run: |
+        python scripts/collect_features.py
+        
+    # Save the collected data
+    - name: Save feature data
+      uses: actions/upload-artifact@v3
+      with:
+        name: aqi-features
+        path: data/hourly_features.csv
