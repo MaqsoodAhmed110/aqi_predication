@@ -1,7 +1,8 @@
 import openmeteo_requests
-import pandas as pd
 import requests_cache
 from retry_requests import retry
+import pandas as pd
+import numpy as np
 from datetime import datetime
 
 def collect_features():
