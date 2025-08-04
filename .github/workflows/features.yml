@@ -31,9 +31,9 @@ jobs:
       run: |
         python scripts/collect_features.py
         
-    # Save the collected data
+    # Save the collected data (UPDATED TO v4)
     - name: Save feature data
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: aqi-features
         path: data/hourly_features.csv
