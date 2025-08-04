@@ -5,47 +5,56 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Independent job that runs if features collection fails
-  check-features:
-    runs-on: ubuntu-latest
-    outputs:
-      features_available: ${{ steps.check.outputs.exists }}
-    steps:
-      - name: Check for features
-        id: check
-        run: |
-          echo "exists=true" >> $GITHUB_OUTPUT
-          # Or use API to verify last successful features run
-          # echo "exists=${{ github.event_name == 'workflow_dispatch' || fromJson('true') }}" >> $GITHUB_OUTPUT
-
-  # Main training job
   train-model:
     runs-on: ubuntu-latest
-    needs: check-features  # Soft dependency
-    if: needs.check-features.outputs.features_available == 'true'
+    timeout-minutes: 30
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Download latest features
+    # Step 1: List available artifacts to debug
+    - name: List available artifacts
+      run: |
+        echo "Available artifacts in repo:"
+        gh api repos/${{ github.repository }}/actions/artifacts --jq '.artifacts[] | .name'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      continue-on-error: true
+    
+    # Step 2: Download using exact naming pattern
+    - name: Download features
+      uses: actions/download-artifact@v4
+      with:
+        name: aqi-features
+        path: data/
+    
+    # Step 3: Fallback download method
+    - name: Alternative download (if previous failed)
+      if: failure() && steps.download-features.conclusion == 'failure'
       uses: actions/download-artifact@v4
       with:
         name: aqi-features-*
         path: data/
         pattern: aqi-features-*
         merge-multiple: true
-        
-    - name: Verify download
+    
+    # Step 4: Verify download
+    - name: Verify features
       run: |
-        [ -f data/hourly_features.csv ] || exit 1
-        echo "Download verification passed"
-        
+        if [ ! -f data/hourly_features.csv ]; then
+          echo "::error::No features file found!"
+          echo "Available files:"
+          ls -la data/
+          exit 1
+        fi
+        echo "Features file verified"
+    
+    # Continue with training...
     - name: Train model
       run: python scripts/train_model.py
       
-    - name: Save model
+    - name: Upload model
       uses: actions/upload-artifact@v4
       with:
         name: aqi-model-${{ github.run_number }}
-        path: models/
-        retention-days: 30
+        path: models/aqi_model.json
