@@ -11,7 +11,7 @@ def train_model():
     # ... (your preprocessing code)
     
     # Train model
-    X = df[['pm10', 'carbon_monoxide', ...]]  # Your features
+    X = df[['pm10', 'carbon_monoxide', 'sulphur_dioxide', 'ozone','aerosol_optical_depth', 'dust']]  # Your features
     y = df['aqi']  # Your target
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
