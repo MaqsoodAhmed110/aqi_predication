@@ -2,52 +2,29 @@ name: Model Training Pipeline
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs at midnight UTC daily
-  workflow_dispatch:     # Allows manual triggering
+    - cron: '0 0 * * *'  # Daily
+  workflow_dispatch:
 
 jobs:
   train-model:
     runs-on: ubuntu-latest
     
     steps:
-    # Checkout your code
     - uses: actions/checkout@v4
     
-    # Download the collected features
-    - name: Download feature data
-      uses: actions/download-artifact@v4
+    # CHANGED FROM v3 TO v4
+    - name: Download features
+      uses: actions/download-artifact@v4  # Updated version
       with:
         name: aqi-features
         path: data/
-        
-    # Set up Python
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-        
-    # Install dependencies
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install xgboost scikit-learn
-        
-    # Run training script
-    - name: Train AQI prediction model
-      run: |
-        python scripts/train_model.py
-        
-    # Save the trained model
-    - name: Save trained model
-      uses: actions/upload-artifact@v4
+
+    - name: Train model
+      run: python scripts/train_model.py
+      
+    # CHANGED FROM v3 TO v4  
+    - name: Upload model
+      uses: actions/upload-artifact@v4  # Updated version
       with:
         name: aqi-model
         path: models/aqi_model.json
-        
-    # Optional: Deploy your model
-    - name: Version and store model
-      run: |
-       DATE=$(date +'%Y-%m-%d')
-       cp models/aqi_model.json models/aqi_model_$DATE.json
-       echo "Model version $DATE saved"
