@@ -26,69 +26,72 @@ jobs:
         pip install requests xgboost scikit-learn pandas numpy joblib
         pip list
         
-    # Download using direct API call
+    # Download using Python script
     - name: Download features
-      run: |
-        import requests
-        import os
-        import zipfile
+      run: python -c "
+import requests
+import os
+import zipfile
 
-        # Get the latest artifact
-        api_url = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts"
-        headers = {
-            "Authorization": f"token {os.environ['GITHUB_TOKEN']}",
-            "Accept": "application/vnd.github.v3+json"
-        }
+# Get the latest artifact
+api_url = f'https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts'
+headers = {
+    'Authorization': f'token {os.environ['GITHUB_TOKEN']}',
+    'Accept': 'application/vnd.github.v3+json'
+}
+
+response = requests.get(api_url, headers=headers)
+response.raise_for_status()
+
+# Find most recent aqi-features artifact
+artifacts = [a for a in response.json()['artifacts'] 
+            if a['name'].startswith('aqi-features')]
+
+if not artifacts:
+    raise Exception('No matching artifacts found')
+    
+latest = max(artifacts, key=lambda x: x['updated_at'])
+print(f'Downloading artifact: {latest['name']} (ID: {latest['id']})')
+
+# Download
+os.makedirs('data', exist_ok=True)
+download_url = latest['archive_download_url']
+response = requests.get(download_url, headers=headers, stream=True)
+response.raise_for_status()
+
+zip_path = 'data/features.zip'
+with open(zip_path, 'wb') as f:
+    for chunk in response.iter_content(chunk_size=8192):
+        f.write(chunk)
         
-        response = requests.get(api_url, headers=headers)
-        response.raise_for_status()
-        
-        # Find most recent aqi-features artifact
-        artifacts = [a for a in response.json()['artifacts'] 
-                    if a['name'].startswith('aqi-features')]
-        
-        if not artifacts:
-            raise Exception("No matching artifacts found")
-            
-        latest = max(artifacts, key=lambda x: x['updated_at'])
-        print(f"Downloading artifact: {latest['name']} (ID: {latest['id']})")
-        
-        # Download
-        os.makedirs('data', exist_ok=True)
-        download_url = latest['archive_download_url']
-        response = requests.get(download_url, headers=headers, stream=True)
-        response.raise_for_status()
-        
-        zip_path = 'data/features.zip'
-        with open(zip_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-                
-        # Extract
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall('data/')
-        os.remove(zip_path)
+# Extract
+with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    zip_ref.extractall('data/')
+os.remove(zip_path)
+"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
     - name: Verify features
       run: |
-        import pandas as pd
-        import os
-        
-        csv_path = 'data/hourly_features.csv'
-        if not os.path.exists(csv_path):
-            print(f"::error::Features file missing at {csv_path}")
-            print("Directory contents:", os.listdir('data'))
-            exit(1)
-            
-        try:
-            df = pd.read_csv(csv_path)
-            print(f"Successfully loaded {len(df)} records")
-            print("Sample data:\n", df.head(2))
-        except Exception as e:
-            print(f"::error::Failed to load features: {str(e)}")
-            exit(1)
+        python -c "
+import pandas as pd
+import os
+
+csv_path = 'data/hourly_features.csv'
+if not os.path.exists(csv_path):
+    print('::error::Features file missing at ' + csv_path)
+    print('Directory contents:', os.listdir('data'))
+    exit(1)
+    
+try:
+    df = pd.read_csv(csv_path)
+    print(f'Successfully loaded {len(df)} records')
+    print('Sample data:\n', df.head(2))
+except Exception as e:
+    print(f'::error::Failed to load features: {str(e)}')
+    exit(1)
+"
         
     - name: Train model
       run: python scripts/train_model.py
