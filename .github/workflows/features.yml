@@ -7,8 +7,7 @@ on:
 jobs:
   collect-features:
     runs-on: ubuntu-latest
-    outputs:
-      run_id: ${{ github.run_id }}  # Expose run ID for training workflow
+    timeout-minutes: 15
     
     steps:
     - uses: actions/checkout@v4
@@ -32,13 +31,15 @@ jobs:
       
     - name: Verify output
       run: |
-        echo "First 3 lines:"
+        echo "File size:"
+        ls -lh data/hourly_features.csv
+        echo "\nFirst 3 lines:"
         head -n 3 data/hourly_features.csv
-        echo "\nTotal records:"
-        wc -l data/hourly_features.csv
+        
     - name: Upload features
       uses: actions/upload-artifact@v4
       with:
-       name: aqi-features  # Or aqi-features-${{ github.run_id }}
-       path: data/hourly_features.csv    
-       retention-days: 3
+        name: aqi-features-${{ github.run_id }}-${{ github.run_attempt }}
+        path: data/hourly_features.csv
+        retention-days: 3
+        if-no-files-found: error
