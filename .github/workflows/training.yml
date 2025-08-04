@@ -8,39 +8,35 @@ jobs:
   train-model:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions:
-      contents: read
-      actions: read
     
     steps:
     - uses: actions/checkout@v4
     
-    # Proper GH CLI setup
-    - name: Install GitHub CLI
-      run: |
-        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-        sudo apt update
-        sudo apt install gh -y
-        
-    - name: Configure GH CLI
-      run: |
-        gh config set prompt disabled
-        gh auth status || gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
-      
-    # Find latest successful features run
-    - name: Get latest features run
-      id: get_run
-      run: |
-        LATEST_RUN=$(gh run list -w "Feature Collection" --json databaseId,conclusion -q 'map(select(.conclusion == "success")) | .[0].databaseId')
-        echo "run_id=$LATEST_RUN" >> $GITHUB_OUTPUT
-        
-    # Download features
+    # Download using the simple name pattern
     - name: Download features
       uses: actions/download-artifact@v4
       with:
-        name: aqi-features-${{ steps.get_run.outputs.run_id }}
+        name: aqi-features
         path: data/
+        
+    # Fallback to list all artifacts if needed
+    - name: Alternative download (if previous failed)
+      if: failure() && steps.download-features.conclusion == 'failure'
+      run: |
+        echo "Trying alternative download method..."
+        ARTIFACT_ID=$(gh api repos/${{ github.repository }}/actions/artifacts --jq '.artifacts[] | select(.name == "aqi-features") | .id')
+        gh run download $ARTIFACT_ID -n "aqi-features" -D data/
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Verify download
+      run: |
+        if [ ! -f data/hourly_features.csv ]; then
+          echo "::error::Feature file not found after all attempts!"
+          echo "Contents of data/:"
+          ls -la data/
+          exit 1
+        fi
         
     - name: Train model
       run: python scripts/train_model.py
