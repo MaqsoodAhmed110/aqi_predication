@@ -26,35 +26,14 @@ jobs:
         pip install xgboost scikit-learn pandas numpy joblib
         pip list
         
-    # Primary download attempt
-    - name: Download features (exact name)
-      id: download-exact
-      uses: actions/download-artifact@v4
-      with:
-        name: aqi-features
-        path: data/
-      continue-on-error: true
-        
-    # Secondary download attempt
-    - name: Download features (pattern match)
-      if: steps.download-exact.outcome == 'failure'
-      id: download-pattern
-      uses: actions/download-artifact@v4
-      with:
-        name: aqi-features-*
-        path: data/
-        pattern: aqi-features-*
-        merge-multiple: false
-        
-    # Final fallback using API
-    - name: Download features (API fallback)
-      if: steps.download-exact.outcome == 'failure' && steps.download-pattern.outcome == 'failure'
+    # Download using direct API call
+    - name: Download features
       run: |
         import requests
         import os
-        from urllib.parse import urljoin
+        import zipfile
 
-        # Get the latest artifact ID
+        # Get the latest artifact
         api_url = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts"
         headers = {
             "Authorization": f"token {os.environ['GITHUB_TOKEN']}",
@@ -64,26 +43,31 @@ jobs:
         response = requests.get(api_url, headers=headers)
         response.raise_for_status()
         
+        # Find most recent aqi-features artifact
         artifacts = [a for a in response.json()['artifacts'] 
                     if a['name'].startswith('aqi-features')]
         
         if not artifacts:
-            print("::error::No matching artifacts found")
-            exit(1)
+            raise Exception("No matching artifacts found")
             
-        latest_artifact = max(artifacts, key=lambda x: x['updated_at'])
-        download_url = latest_artifact['archive_download_url']
+        latest = max(artifacts, key=lambda x: x['updated_at'])
+        print(f"Downloading artifact: {latest['name']} (ID: {latest['id']})")
         
-        # Download and extract
+        # Download
         os.makedirs('data', exist_ok=True)
+        download_url = latest['archive_download_url']
         response = requests.get(download_url, headers=headers, stream=True)
         response.raise_for_status()
         
-        with open('data/features.zip', 'wb') as f:
+        zip_path = 'data/features.zip'
+        with open(zip_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
                 
-        os.system('unzip data/features.zip -d data/')
+        # Extract
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall('data/')
+        os.remove(zip_path)
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       shell: python
@@ -95,15 +79,14 @@ jobs:
         
         csv_path = 'data/hourly_features.csv'
         if not os.path.exists(csv_path):
-            print(f"::error::Features file not found at {csv_path}")
-            print("Contents of data/ directory:")
-            print(os.listdir('data'))
+            print(f"::error::Features file missing at {csv_path}")
+            print("Directory contents:", os.listdir('data'))
             exit(1)
             
         try:
             df = pd.read_csv(csv_path)
             print(f"Successfully loaded {len(df)} records")
-            print("Columns:", df.columns.tolist())
+            print("Sample data:\n", df.head(2))
         except Exception as e:
             print(f"::error::Failed to load features: {str(e)}")
             exit(1)
