@@ -1,30 +1,34 @@
-name: Model Training Pipeline
-
+name: Model Training
 on:
   schedule:
-    - cron: '0 0 * * *'  # Daily
+    - cron: '30 0 * * *'  # Daily at 00:30 UTC
   workflow_dispatch:
 
 jobs:
   train-model:
     runs-on: ubuntu-latest
+    needs: collect-features  # Explicit dependency
     
     steps:
     - uses: actions/checkout@v4
     
-    # CHANGED FROM v3 TO v4
-    - name: Download features
-      uses: actions/download-artifact@v4  # Updated version
+    - name: Download artifact
+      uses: actions/download-artifact@v4
       with:
-        name: aqi-features
+        name: aqi-features-${{ needs.collect-features.outputs.run_id }}
         path: data/
-
+        
+    - name: Verify download
+      run: |
+        [ -f data/hourly_features.csv ] || exit 1
+        echo "Download verification passed"
+        
     - name: Train model
       run: python scripts/train_model.py
       
-    # CHANGED FROM v3 TO v4  
-    - name: Upload model
-      uses: actions/upload-artifact@v4  # Updated version
+    - name: Save model
+      uses: actions/upload-artifact@v4
       with:
-        name: aqi-model
-        path: models/aqi_model.json
+        name: aqi-model-${{ github.run_number }}
+        path: models/
+        retention-days: 30
