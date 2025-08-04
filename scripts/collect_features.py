@@ -34,7 +34,10 @@ def collect_features():
         ),
         "pm10": hourly.Variables(0).ValuesAsNumpy(),
         "carbon_monoxide": hourly.Variables(1).ValuesAsNumpy(),
-        # Add other features...
+        "sulphur_dioxide": hourly.Variables(2).ValuesAsNumpy(),
+        "ozone": hourly.Variables(3).ValuesAsNumpy(),
+        "aerosol_optical_depth": hourly.Variables(4).ValuesAsNumpy(),
+        "dust": hourly.Variables(5).ValuesAsNumpy(),
     }
     
     df = pd.DataFrame(data)
