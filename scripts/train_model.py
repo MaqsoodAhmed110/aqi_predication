@@ -11,7 +11,8 @@ def train_model():
     df = pd.read_csv("data/hourly_features.csv")
     
     # Feature selection
-    features = ['pm10', 'carbon_monoxide', 'sulphur_dioxide','dust', 'aerosol_optical_depth', 'ozone']
+    features = ['pm10', 'carbon_monoxide', 'sulphur_dioxide', 'dust', 
+               'aerosol_optical_depth', 'ozone']
     
     # Prepare data
     X = df[features]
@@ -43,8 +44,6 @@ def train_model():
     
     # Save model
     model.save_model("models/aqi_model.json")
-    
-    # Save feature list for reference
     joblib.dump(features, "models/features.pkl")
 
 if __name__ == "__main__":
