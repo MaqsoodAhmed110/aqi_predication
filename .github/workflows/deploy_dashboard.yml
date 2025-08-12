@@ -1,19 +1,17 @@
-name: Dashboard Deployment
+name: Deploy Dashboard
 
 on:
-  workflow_run:
-    workflows: ["Model Training"]
-    types:
-      - completed
+  schedule:
+    - cron: '45 * * * *'  # every hour at :45
   workflow_dispatch:
 
 jobs:
   deploy-dashboard:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       actions: read
-      contents: write
+      contents: read
 
     steps:
     - name: Checkout repo
@@ -24,29 +22,39 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install dependencies
+    - name: Install GitHub CLI
+      run: sudo apt-get install -y gh
+
+    - name: Authenticate GH CLI
+      run: gh auth setup-git
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Find latest successful training run ID
+      id: get_run_id
       run: |
-        python -m pip install --upgrade pip
-        pip install pandas scikit-learn xgboost joblib dash plotly dash-bootstrap-components
+        latest_run_id=$(gh run list \
+          --workflow "Model Training" \
+          --branch main \
+          --status success \
+          --limit 1 \
+          --json databaseId \
+          -q '.[0].databaseId')
+        echo "Latest training run ID: $latest_run_id"
+        echo "run_id=$latest_run_id" >> $GITHUB_OUTPUT
 
-    - name: Download trained model
-      uses: actions/download-artifact@v4
-      with:
-        name: aqi-model
-        path: models
+    - name: Download model artifact from latest training run
+      run: |
+        gh run download ${{ steps.get_run_id.outputs.run_id }} \
+          --name aqi-model \
+          --dir models
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Install dashboard dependencies
+      run: |
+        pip install --upgrade pip
+        pip install pandas xgboost scikit-learn joblib dash plotly dash-bootstrap-components
 
-    - name: Download latest features
-      uses: actions/download-artifact@v4
-      with:
-        name: aqi-features-${{ github.run_id }}-${{ github.run_attempt }}
-        path: data
-
-    - name: Build dashboard HTML
+    - name: Run dashboard script
       run: python scripts/dashboard.py
-
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./docs
