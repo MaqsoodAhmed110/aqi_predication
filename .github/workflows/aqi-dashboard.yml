@@ -37,7 +37,7 @@ jobs:
     - name: Get latest model training run ID
       id: get_run_id
       run: |
-        run_id=$(gh run list --workflow "model_training.yml" --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+        run_id=$(gh run list --workflow "training.yml" --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
         echo "run_id=$run_id"
         echo "run_id=$run_id" >> $GITHUB_OUTPUT
       env:
