@@ -1,7 +1,7 @@
 name: AQI Dashboard Deployment
 on:
   schedule:
-    - cron: '*/15 * * * *' # every 15 minutes
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -16,30 +16,34 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-        
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install pandas plotly xgboost joblib streamlit scikit-learn
 
-    
-
+    # ✅ Download model artifact before generating dashboard
+    - name: Download model artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: aqi-model
+        path: models
 
     - name: Generate static dashboard HTML
       run: |
         mkdir -p public
         python scripts/dashboard_static.py
-        
+
     - name: Upload static site artifact
-      uses: actions/upload-artifact@v4   # ✅ fixed from v3 to v4
+      uses: actions/upload-artifact@v4
       with:
         name: github-pages
         path: public
-        
+
     - name: Deploy to GitHub Pages
       uses: actions/deploy-pages@v2
