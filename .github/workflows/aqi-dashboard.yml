@@ -27,12 +27,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas plotly xgboost joblib streamlit
 
-    - name: Download latest model
-      run: |
-        mkdir -p models
-        python scripts/download_model.py
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
 
     - name: Generate static dashboard HTML
       run: |
