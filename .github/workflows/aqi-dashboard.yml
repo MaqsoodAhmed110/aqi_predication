@@ -27,13 +27,13 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas plotly xgboost joblib streamlit scikit-learn
 
-    # Install GitHub CLI to fetch artifacts
+    # ✅ Install GitHub CLI
     - name: Install GitHub CLI
-      uses: cli/cli@v2
-      with:
-        version: latest
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gh
 
-    # Get latest successful run ID from model training workflow
+    # ✅ Get latest successful run ID from model training workflow
     - name: Get latest model training run ID
       id: get_run_id
       run: |
@@ -43,7 +43,7 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
 
-    # Download model artifact
+    # ✅ Download model artifact
     - name: Download model artifact
       run: |
         mkdir -p models
@@ -53,18 +53,18 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
 
-    # Generate static dashboard
+    # ✅ Generate static dashboard
     - name: Generate static dashboard HTML
       run: |
         mkdir -p public
         python scripts/dashboard_static.py
 
-    # Upload static site artifact
+    # ✅ Upload static site artifact
     - name: Upload static site artifact
       uses: actions/upload-pages-artifact@v3
       with:
         path: public
 
-    # Deploy to GitHub Pages
+    # ✅ Deploy to GitHub Pages
     - name: Deploy to GitHub Pages
       uses: actions/deploy-pages@v4
