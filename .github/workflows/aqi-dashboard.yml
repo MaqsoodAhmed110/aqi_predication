@@ -28,13 +28,13 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas plotly xgboost joblib streamlit scikit-learn
 
-    # ✅ Install official GitHub CLI
+    # ✅ Install GitHub CLI
     - name: Install GitHub CLI
-      uses: cli/cli@v4
-      with:
-        version: latest
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gh
 
-    # 🔍 Find latest successful run with aqi-model artifact
+    # 🔍 Get latest successful run ID from main branch
     - name: Get latest run ID
       id: get_run_id
       run: |
