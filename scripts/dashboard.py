@@ -2,7 +2,8 @@ import pandas as pd
 import joblib
 from dash import Dash, dcc, html, dash_table
 import dash_bootstrap_components as dbc
-
+import xgboost as xgb
+import os
 # --------------------
 # Paths & Config
 # --------------------
@@ -20,10 +21,10 @@ FEATURES = [
 ]
 
 # --------------------
-# Load Model
-# --------------------
-print(f"Loading model from {MODEL_PATH}...")
-model = joblib.load(MODEL_PATH)
+# --- Load model ---
+print(f"Loading XGBoost model from {MODEL_PATH}...")
+model = xgb.XGBRegressor()
+model.load_model(MODEL_PATH)
 
 # --------------------
 # Load and Clean Data
