@@ -27,8 +27,17 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas plotly xgboost joblib streamlit scikit-learn
 
-    # ✅ Download model artifact before generating dashboard
-    - name: Download model artifact from latest training run
+    # ✅ Find latest successful training run ID
+    - name: Get latest training run ID
+      id: get_run_id
+      run: |
+        run_id=$(gh run list --workflow "Train Model" --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+        echo "run_id=$run_id" >> $GITHUB_OUTPUT
+      env:
+        GH_TOKEN: ${{ github.token }}
+
+    # ✅ Download model artifact from that run
+    - name: Download model artifact
       run: |
         gh run download ${{ steps.get_run_id.outputs.run_id }} \
           --name aqi-model \
@@ -36,16 +45,19 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
 
+    # ✅ Build dashboard
     - name: Generate static dashboard HTML
       run: |
         mkdir -p public
         python scripts/dashboard_static.py
 
-    - name: Upload static site artifact
-      uses: actions/upload-artifact@v4
+    # ✅ Correct upload for GitHub Pages
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v3
       with:
-        name: github-pages
         path: public
 
+    # ✅ Deploy to GitHub Pages
     - name: Deploy to GitHub Pages
-      uses: actions/deploy-pages@v2
+      id: deployment
+      uses: actions/deploy-pages@v4
