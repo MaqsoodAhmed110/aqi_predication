@@ -1,37 +1,35 @@
 import pandas as pd
-import xgboost as xgb
 import joblib
+import xgboost as xgb
 import plotly.express as px
-from dash import Dash, dcc, html
-from datetime import datetime, timedelta
+from dash import Dash, html, dcc
 
-# Load latest model and features
+# Load data & model
+df = pd.read_csv("data/hourly_features.csv")
+
 model = xgb.XGBRegressor()
 model.load_model("models/aqi_model.json")
-features = joblib.load("models/features.pkl")
 
-# Load latest features
-df = pd.read_csv("data/hourly_features.csv")
-df['timestamp'] = pd.to_datetime(df['timestamp'])
+# Make predictions
+if "us_aqi" in df.columns:
+    df["predicted_aqi"] = model.predict(df.drop(columns=["us_aqi"], errors="ignore"))
+else:
+    df["predicted_aqi"] = model.predict(df)
 
-# Predict future AQI (simple example: use last known values and forecast)
-forecast_hours = 24
-future_times = [df['timestamp'].max() + timedelta(hours=i) for i in range(1, forecast_hours+1)]
-future_df = pd.DataFrame([df[features].iloc[-1].values] * forecast_hours, columns=features)
-future_aqi = model.predict(future_df)
+# Plot
+fig = px.line(df, x="timestamp", y=["us_aqi", "predicted_aqi"],
+              labels={"value": "AQI", "variable": "Type"},
+              title="Actual vs Predicted AQI")
 
-# Create dashboard app
+# Dash layout
 app = Dash(__name__)
 app.layout = html.Div([
-    html.H1("Real-Time & Forecasted AQI Dashboard"),
-    html.P(f"Last Updated: {datetime.now()}"),
-
-    html.H2("Latest AQI Trends"),
-    dcc.Graph(figure=px.line(df, x="timestamp", y="us_aqi", title="Observed AQI")),
-
-    html.H2("Forecasted AQI (Next 24 Hours)"),
-    dcc.Graph(figure=px.line(x=future_times, y=future_aqi, labels={'x': 'Time', 'y': 'Predicted AQI'}, title="Forecasted AQI"))
+    html.H1("Air Quality Dashboard"),
+    dcc.Graph(figure=fig)
 ])
 
+# Save static HTML for GitHub Pages
+fig.write_html("docs/index.html", include_plotlyjs="cdn")
+
 if __name__ == "__main__":
-    app.run_server(host="0.0.0.0", port=8080)
+    app.run(host="0.0.0.0", port=8080, debug=True)
