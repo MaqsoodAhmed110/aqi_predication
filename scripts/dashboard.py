@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import xgboost as xgb
 import dash
@@ -71,10 +72,12 @@ app.layout = html.Div([
     )
 ])
 
-# Run the app (updated for Dash >= 2.16)
+# --- Only run Dash locally ---
 if __name__ == "__main__":
-    try:
-        app.run(debug=True, host="0.0.0.0", port=8050)
-    except AttributeError:
-        # Fallback for old versions of Dash
-        app.run_server(debug=True, host="0.0.0.0", port=8050)
+    if os.environ.get("CI", "").lower() == "true":
+        print("CI environment detected — skipping dashboard web server.")
+    else:
+        try:
+            app.run(debug=True, host="0.0.0.0", port=8050)
+        except AttributeError:
+            app.run_server(debug=True, host="0.0.0.0", port=8050)
