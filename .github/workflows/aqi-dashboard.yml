@@ -1,4 +1,5 @@
 name: AQI Dashboard Deployment
+
 on:
   schedule:
     - cron: '*/15 * * * *'
@@ -25,39 +26,40 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas plotly xgboost joblib streamlit scikit-learn
+        pip install pandas plotly xgboost joblib streamlit scikit-learn gh
 
-    # ✅ Find latest successful training run ID
-    - name: Get latest training run ID
+    # 🔍 Find latest successful run with artifact
+    - name: Get latest run ID
       id: get_run_id
       run: |
-        run_id=$(gh run list --workflow "Train Model" --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+        run_id=$(gh run list --branch main --status success --limit 20 --json databaseId --jq '.[0].databaseId')
+        echo "run_id=$run_id"
         echo "run_id=$run_id" >> $GITHUB_OUTPUT
       env:
         GH_TOKEN: ${{ github.token }}
 
-    # ✅ Download model artifact from that run
+    # 📥 Download the model artifact from that run
     - name: Download model artifact
       run: |
+        mkdir -p models
         gh run download ${{ steps.get_run_id.outputs.run_id }} \
           --name aqi-model \
           --dir models
       env:
         GH_TOKEN: ${{ github.token }}
 
-    # ✅ Build dashboard
+    # 🖥 Generate static dashboard HTML
     - name: Generate static dashboard HTML
       run: |
         mkdir -p public
         python scripts/dashboard_static.py
 
-    # ✅ Correct upload for GitHub Pages
-    - name: Upload Pages artifact
+    # 📤 Upload static site artifact for Pages
+    - name: Upload static site artifact
       uses: actions/upload-pages-artifact@v3
       with:
         path: public
 
-    # ✅ Deploy to GitHub Pages
+    # 🚀 Deploy to GitHub Pages
     - name: Deploy to GitHub Pages
-      id: deployment
       uses: actions/deploy-pages@v4
