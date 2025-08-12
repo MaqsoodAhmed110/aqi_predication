@@ -1,0 +1,47 @@
+name: AQI Dashboard Deployment
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  deploy-dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas plotly xgboost joblib
+
+    - name: Download latest model
+      run: |
+        mkdir -p models
+        python scripts/download_model.py
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Generate static dashboard HTML
+      run: |
+        mkdir -p public
+        python scripts/dashboard_static.py
+        
+    - name: Upload to GitHub Pages
+      uses: actions/upload-pages-artifact@v2
+      with:
+        path: public
+        
+    - name: Deploy to GitHub Pages
+      uses: actions/deploy-pages@v2
