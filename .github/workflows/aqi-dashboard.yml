@@ -1,8 +1,7 @@
 name: AQI Dashboard Deployment
-
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/15 * * * *' # every 15 minutes
   workflow_dispatch:
 
 jobs:
@@ -28,44 +27,44 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas plotly xgboost joblib streamlit scikit-learn
 
-    # ✅ Install GitHub CLI
+    # Install GitHub CLI to fetch artifacts
     - name: Install GitHub CLI
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gh
+      uses: cli/cli@v2
+      with:
+        version: latest
 
-    # 🔍 Get latest successful run ID from main branch
-    - name: Get latest run ID
+    # Get latest successful run ID from model training workflow
+    - name: Get latest model training run ID
       id: get_run_id
       run: |
-        run_id=$(gh run list --branch main --status success --limit 20 --json databaseId --jq '.[0].databaseId')
+        run_id=$(gh run list --workflow "model_training.yml" --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
         echo "run_id=$run_id"
         echo "run_id=$run_id" >> $GITHUB_OUTPUT
       env:
         GH_TOKEN: ${{ github.token }}
 
-    # 📥 Download the model artifact
+    # Download model artifact
     - name: Download model artifact
       run: |
         mkdir -p models
         gh run download ${{ steps.get_run_id.outputs.run_id }} \
-          --name aqi-model \
+          --name "aqi-model" \
           --dir models
       env:
         GH_TOKEN: ${{ github.token }}
 
-    # 🖥 Generate static dashboard HTML
+    # Generate static dashboard
     - name: Generate static dashboard HTML
       run: |
         mkdir -p public
         python scripts/dashboard_static.py
 
-    # 📤 Upload static site artifact
+    # Upload static site artifact
     - name: Upload static site artifact
       uses: actions/upload-pages-artifact@v3
       with:
         path: public
 
-    # 🚀 Deploy to GitHub Pages
+    # Deploy to GitHub Pages
     - name: Deploy to GitHub Pages
       uses: actions/deploy-pages@v4
