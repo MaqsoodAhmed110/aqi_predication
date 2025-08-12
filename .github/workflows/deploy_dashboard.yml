@@ -1,33 +1,51 @@
-name: Deploy Dashboard
+name: Dashboard Deployment
+
 on:
-  schedule:
-    - cron: "45 * * * *" # after training finishes
+  workflow_run:
+    workflows: ["Model Training"]
+    types:
+      - completed
   workflow_dispatch:
 
 jobs:
-  deploy:
+  deploy-dashboard:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+    - name: Checkout repo
+      uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          pip install pandas xgboost joblib dash plotly
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
 
-      - name: Download latest model artifact
-        run: python scripts/download_features.py
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Run dashboard and export static HTML
-        run: |
-          python scripts/dashboard.py &
-          sleep 10
-          # Export to HTML (Dash export trick)
-          pip install dash-bootstrap-components
-          python -c "import dash; dash.Dash().run_server()" # placeholder
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas scikit-learn xgboost joblib dash plotly dash-bootstrap-components
+
+    - name: Download trained model
+      uses: actions/download-artifact@v4
+      with:
+        name: aqi-model-${{ github.run_number }}
+        path: models
+
+    - name: Download latest features
+      uses: actions/download-artifact@v4
+      with:
+        name: aqi-features-${{ github.run_id }}-${{ github.run_attempt }}
+        path: data
+
+    - name: Build dashboard HTML
+      run: python scripts/dashboard.py
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs
