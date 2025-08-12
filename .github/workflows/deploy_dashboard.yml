@@ -1,0 +1,33 @@
+name: Deploy Dashboard
+on:
+  schedule:
+    - cron: "45 * * * *" # after training finishes
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install pandas xgboost joblib dash plotly
+
+      - name: Download latest model artifact
+        run: python scripts/download_features.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run dashboard and export static HTML
+        run: |
+          python scripts/dashboard.py &
+          sleep 10
+          # Export to HTML (Dash export trick)
+          pip install dash-bootstrap-components
+          python -c "import dash; dash.Dash().run_server()" # placeholder
