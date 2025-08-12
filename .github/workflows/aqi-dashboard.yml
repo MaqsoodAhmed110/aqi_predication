@@ -26,9 +26,15 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas plotly xgboost joblib streamlit scikit-learn gh
+        pip install pandas plotly xgboost joblib streamlit scikit-learn
 
-    # 🔍 Find latest successful run with artifact
+    # ✅ Install official GitHub CLI
+    - name: Install GitHub CLI
+      uses: cli/cli@v2
+      with:
+        version: latest
+
+    # 🔍 Find latest successful run with aqi-model artifact
     - name: Get latest run ID
       id: get_run_id
       run: |
@@ -38,7 +44,7 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
 
-    # 📥 Download the model artifact from that run
+    # 📥 Download the model artifact
     - name: Download model artifact
       run: |
         mkdir -p models
@@ -54,7 +60,7 @@ jobs:
         mkdir -p public
         python scripts/dashboard_static.py
 
-    # 📤 Upload static site artifact for Pages
+    # 📤 Upload static site artifact
     - name: Upload static site artifact
       uses: actions/upload-pages-artifact@v3
       with:
