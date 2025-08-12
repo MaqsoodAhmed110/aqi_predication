@@ -40,9 +40,10 @@ jobs:
         python scripts/dashboard_static.py
         
     - name: Upload static site artifact
-      uses: actions/upload-pages-artifact@v2  # ✅ latest stable for Pages
+      uses: actions/upload-artifact@v4   # ✅ fixed from v3 to v4
       with:
+        name: github-pages
         path: public
         
     - name: Deploy to GitHub Pages
-      uses: actions/deploy-pages@v2  # ✅ latest stable for Pages
+      uses: actions/deploy-pages@v2
