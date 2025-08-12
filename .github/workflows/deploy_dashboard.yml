@@ -26,9 +26,9 @@ jobs:
       run: sudo apt-get install -y gh
 
     - name: Authenticate GH CLI
-      run: gh auth setup-git
+      run: gh auth status
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ github.token }}
 
     - name: Find latest successful training run ID
       id: get_run_id
@@ -42,6 +42,8 @@ jobs:
           -q '.[0].databaseId')
         echo "Latest training run ID: $latest_run_id"
         echo "run_id=$latest_run_id" >> $GITHUB_OUTPUT
+      env:
+        GH_TOKEN: ${{ github.token }}
 
     - name: Download model artifact from latest training run
       run: |
@@ -49,7 +51,7 @@ jobs:
           --name aqi-model \
           --dir models
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ github.token }}
 
     - name: Install dashboard dependencies
       run: |
