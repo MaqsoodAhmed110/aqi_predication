@@ -28,11 +28,13 @@ jobs:
         pip install pandas plotly xgboost joblib streamlit scikit-learn
 
     # ✅ Download model artifact before generating dashboard
-    - name: Download model artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: aqi-model
-        path: models
+    - name: Download model artifact from latest training run
+      run: |
+        gh run download ${{ steps.get_run_id.outputs.run_id }} \
+          --name aqi-model \
+          --dir models
+      env:
+        GH_TOKEN: ${{ github.token }}
 
     - name: Generate static dashboard HTML
       run: |
