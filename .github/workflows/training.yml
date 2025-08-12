@@ -45,8 +45,9 @@ jobs:
     - name: Upload model artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: aqi-model-${{ github.run_number }}
-        path: |
-          models/aqi_model.json
-          models/features.pkl
-        retention-days: 7
+       name: aqi-model
+       path: |
+         models/aqi_model.json
+         models/features.pkl
+       retention-days: 7
+
