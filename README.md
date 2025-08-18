@@ -1,4 +1,4 @@
-# 🌍 AQI Prediction Dashboard  
+# 🌍 AQI Prediction 
 
 This repository provides a **Machine Learning-based Air Quality Prediction System** using **XGBoost** and **Gradio**.  
 It fetches **real-time air quality data** from the [Open-Meteo Air Quality API](https://open-meteo.com/) and predicts the **US AQI (Air Quality Index)** for the next **3 days** based on pollutant concentrations.  
