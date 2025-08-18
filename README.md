@@ -14,19 +14,19 @@ This repository contains an end-to-end Air Quality Index (AQI) prediction system
 ---
 
 ## 📂 Project Structure
-├── .github/workflows/ # CI/CD pipeline definitions
+- ├── .github/workflows/ # CI/CD pipeline definitions
 │ ├── features.yml # Hourly data collection
 │ ├── training.yml # Model retraining
 │ ├── aqi-dashboard.yml # Dashboard deployment
 │ └── static.yml # Fallback static site
-├── data/ # Processed AQI datasets
-├── models/ # Trained model binaries
-├── scripts/ # Core pipeline scripts
+- ├── data/ # Processed AQI datasets
+- ├── models/ # Trained model binaries
+- ├── scripts/ # Core pipeline scripts
 │ ├── collect_features.py # Data ingestion
 │ ├── train_model.py # ML training
 │ ├── dashboard.py # Interactive dashboard
 │ └── dashboard_static.py # Static version
-├── AQI_predication_1.ipynb # Exploratory analysis and ML models
-├── gradio_aqi_code.ipynb # Gradio UI prototype
-├── requirements.txt # Python dependencies
-└── Air Quality Index.pdf # Project documentation
+- ├── AQI_predication_1.ipynb # Exploratory analysis and ML models
+- ├── gradio_aqi_code.ipynb # Gradio UI prototype
+- ├── requirements.txt # Python dependencies
+- └── Air Quality Index.pdf # Project documentation
