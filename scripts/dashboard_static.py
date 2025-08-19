@@ -1,47 +1,82 @@
+import requests
 import pandas as pd
 import plotly.express as px
 import xgboost as xgb
 import joblib
-from datetime import datetime, timedelta
+from datetime import datetime
 
+# -------------------------
 # Load model
+# -------------------------
 model = xgb.XGBRegressor()
 model.load_model("models/aqi_model.json")
+
 features = ['pm10','carbon_monoxide','sulphur_dioxide','dust','aerosol_optical_depth','ozone']
 
-# Load data
+# -------------------------
+# Load local historical data (last 24 hrs)
+# -------------------------
 df = pd.read_csv("data/hourly_features.csv")
 df[features] = df[features].apply(pd.to_numeric, errors="coerce").fillna(0)
 df["predicted_aqi"] = model.predict(df[features])
 
-# Last 24 hours chart
+# -------------------------
+# Chart for last 24 hours
+# -------------------------
 fig1 = px.line(df.tail(24), x='timestamp', y='predicted_aqi',
                title="Predicted AQI - Last 24 Hours")
 
-# --- Replace mock forecast with actual model predictions ---
+# -------------------------
+# Fetch future data (72-hour forecast from API)
+# -------------------------
+def fetch_forecast(lat=24.6844, lon=67.0479):  # default: Islamabad, Pakistan
+    url = (
+        f"https://air-quality-api.open-meteo.com/v1/air-quality"
+        f"?latitude={lat}&longitude={lon}"
+        f"&hourly=pm10,carbon_monoxide,sulphur_dioxide,aerosol_optical_depth,ozone,dust"
+        f"&forecast_days=3"
+    )
 
-# Create timestamps for next 72 hours
-future_hours = [datetime.now() + timedelta(hours=i) for i in range(1, 73)]
+    response = requests.get(url)
+    if response.status_code != 200:
+        return pd.DataFrame()
 
-# For demonstration, let's assume future features are the same as the last known row
-# (In practice, you’d load or predict actual future values for pollutants)
-last_row = df[features].iloc[-1]
-future_features = pd.DataFrame([last_row.values] * 72, columns=features)
+    data = response.json()
+    if "hourly" not in data:
+        return pd.DataFrame()
 
-# Predict AQI for the next 72 hours using the trained model
-future_predictions = model.predict(future_features)
+    hourly = data["hourly"]
+    forecast_df = pd.DataFrame(hourly)
 
-# Build forecast dataframe
-forecast_data = pd.DataFrame({
-    "hour": future_hours,
-    "predicted_aqi": future_predictions
-})
+    # Ensure features exist
+    if not all(f in forecast_df.columns for f in features):
+        return pd.DataFrame()
 
-# Create forecast chart
-fig2 = px.line(forecast_data, x='hour', y='predicted_aqi',
-               title="Predicted AQI - Next 72 Hours")
+    # Convert to numeric & fill NA
+    forecast_df[features] = forecast_df[features].apply(pd.to_numeric, errors="coerce").fillna(0)
+    forecast_df["timestamp"] = pd.to_datetime(forecast_df["time"])
 
-# Save as HTML
+    return forecast_df
+
+# Get forecast data
+forecast_df = fetch_forecast()
+
+if not forecast_df.empty:
+    # Predict AQI for forecast data
+    forecast_df["predicted_aqi"] = model.predict(forecast_df[features])
+
+    # Keep only next 72 hours
+    forecast_df = forecast_df.head(72)
+
+    # Forecast chart
+    fig2 = px.line(forecast_df, x='timestamp', y='predicted_aqi',
+                   title="Predicted AQI - Next 72 Hours")
+else:
+    fig2 = px.line(title="No Forecast Data Available")
+
+# -------------------------
+# Save as HTML dashboard
+# -------------------------
 with open("public/index.html", "w") as f:
     f.write("<h1>Air Quality Dashboard</h1>")
     f.write(fig1.to_html(full_html=False, include_plotlyjs='cdn'))
