@@ -18,11 +18,26 @@ df["predicted_aqi"] = model.predict(df[features])
 fig1 = px.line(df.tail(24), x='timestamp', y='predicted_aqi',
                title="Predicted AQI - Last 24 Hours")
 
-# 72-hour forecast mock
+# --- Replace mock forecast with actual model predictions ---
+
+# Create timestamps for next 72 hours
+future_hours = [datetime.now() + timedelta(hours=i) for i in range(1, 73)]
+
+# For demonstration, let's assume future features are the same as the last known row
+# (In practice, you’d load or predict actual future values for pollutants)
+last_row = df[features].iloc[-1]
+future_features = pd.DataFrame([last_row.values] * 72, columns=features)
+
+# Predict AQI for the next 72 hours using the trained model
+future_predictions = model.predict(future_features)
+
+# Build forecast dataframe
 forecast_data = pd.DataFrame({
-    'hour': [datetime.now() + timedelta(hours=i) for i in range(72)],
-    'predicted_aqi': [120 + (i % 20) for i in range(72)]
+    "hour": future_hours,
+    "predicted_aqi": future_predictions
 })
+
+# Create forecast chart
 fig2 = px.line(forecast_data, x='hour', y='predicted_aqi',
                title="Predicted AQI - Next 72 Hours")
 
